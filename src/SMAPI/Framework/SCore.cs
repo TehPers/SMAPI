@@ -16,7 +16,6 @@ using Microsoft.Win32;
 #endif
 using Newtonsoft.Json;
 using StardewModdingAPI.Enums;
-using StardewModdingAPI.Framework.Deprecations;
 using StardewModdingAPI.Framework.Exceptions;
 using StardewModdingAPI.Framework.Logging;
 using StardewModdingAPI.Framework.Models;
@@ -102,10 +101,6 @@ namespace StardewModdingAPI.Framework
         /*********
         ** Accessors
         *********/
-        /// <summary>Manages deprecation warnings.</summary>
-        /// <remarks>This is initialized after the game starts. This is accessed directly because it's not part of the normal class model.</remarks>
-        internal static DeprecationManager DeprecationManager { get; private set; } = null!; // initialized in constructor, which happens before other code can access it
-
         /// <summary>The singleton instance.</summary>
         /// <remarks>This is only intended for use by external code like the Error Handler mod.</remarks>
         internal static SCore Instance { get; private set; } = null!; // initialized in constructor, which happens before other code can access it
@@ -145,7 +140,6 @@ namespace StardewModdingAPI.Framework
                 this.Settings.OverrideDeveloperMode(developerMode.Value);
 
             this.LogManager = new LogManager(logPath: logPath, colorConfig: this.Settings.ConsoleColors, writeToConsole: writeToConsole, verboseLogging: this.Settings.VerboseLogging, isDeveloperMode: this.Settings.DeveloperMode, getScreenIdForLog: this.GetScreenIdForLog);
-            SCore.DeprecationManager = new DeprecationManager(this.Monitor, this.ModRegistry);
             SDate.Translations = this.Translator;
 
             // log SMAPI/OS info
@@ -367,12 +361,6 @@ namespace StardewModdingAPI.Framework
         {
             try
             {
-                /*********
-                ** Safe queued work
-                *********/
-                // print warnings/alerts
-                SCore.DeprecationManager.PrintQueued();
-
                 /*********
                 ** First-tick initialization
                 *********/
