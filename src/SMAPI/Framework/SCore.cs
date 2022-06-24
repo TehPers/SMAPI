@@ -22,7 +22,6 @@ using StardewModdingAPI.Framework.Logging;
 using StardewModdingAPI.Framework.Models;
 using StardewModdingAPI.Framework.ModHelpers;
 using StardewModdingAPI.Framework.ModLoading;
-using StardewModdingAPI.Framework.Networking;
 using StardewModdingAPI.Framework.Reflection;
 using StardewModdingAPI.Framework.Serialization;
 using StardewModdingAPI.Framework.Utilities;
@@ -79,9 +78,6 @@ namespace StardewModdingAPI.Framework
         ****/
         /// <summary>The underlying game instance.</summary>
         private SGameRunner Game = null!; // initialized very early
-
-        /// <summary>The game's core multiplayer utility for the main player.</summary>
-        private SMultiplayer Multiplayer = null!; // initialized very early
 
         /// <summary>Tracks the installed mods.</summary>
         /// <remarks>This is initialized after the game starts.</remarks>
@@ -200,12 +196,10 @@ namespace StardewModdingAPI.Framework
                 AppDomain.CurrentDomain.AssemblyResolve += (_, e) => AssemblyLoader.ResolveAssembly(e.Name);
 
                 // override game
-                this.Multiplayer = new SMultiplayer(this.Monitor, this.Toolkit.JsonHelper, this.ModRegistry, this.Reflection, this.OnModMessageReceived, this.Settings.LogNetworkTraffic);
                 this.Game = new SGameRunner(
                     monitor: this.Monitor,
                     reflection: this.Reflection,
                     modHooks: new SModHooks(this.OnNewDayAfterFade, this.Monitor),
-                    multiplayer: this.Multiplayer,
                     exitGameImmediately: this.ExitGameImmediately,
 
                     onGameContentLoaded: this.OnInstanceContentLoaded,
@@ -640,18 +634,8 @@ namespace StardewModdingAPI.Framework
                 return;
 
             // update data
-            LoadStage oldStage = Context.LoadStage;
             Context.LoadStage = newStage;
             this.Monitor.VerboseLog($"Context: load stage changed to {newStage}");
-
-            // handle stages
-            switch (newStage)
-            {
-                case LoadStage.ReturningToTitle:
-                    this.Monitor.Log("Context: returning to title");
-                    this.OnReturningToTitle();
-                    break;
-            }
         }
 
         /// <summary>A callback invoked before <see cref="Game1.newDayAfterFade"/> runs.</summary>
@@ -660,23 +644,12 @@ namespace StardewModdingAPI.Framework
             this.Reflection.NewCacheInterval();
         }
 
-        /// <summary>Raised immediately before the player returns to the title screen.</summary>
-        private void OnReturningToTitle()
-        {
-            // perform cleanup
-            this.Multiplayer.CleanupOnMultiplayerExit();
-        }
 
         /// <summary>Raised before the game exits.</summary>
         private void OnGameExiting()
         {
-            this.Multiplayer.Disconnect(StardewValley.Multiplayer.DisconnectType.ClosedGame);
             this.Dispose();
         }
-
-        /// <summary>Raised when a mod network message is received.</summary>
-        /// <param name="message">The message to deliver to applicable mods.</param>
-        private void OnModMessageReceived(ModMessageModel message) { }
 
         /// <summary>Look for common issues with the game's XNB content, and log warnings if anything looks broken or outdated.</summary>
         /// <returns>Returns whether all integrity checks passed.</returns>
@@ -1172,9 +1145,8 @@ namespace StardewModdingAPI.Framework
                         IDataHelper dataHelper = new DataHelper(mod, mod.DirectoryPath, jsonHelper);
                         IReflectionHelper reflectionHelper = new ReflectionHelper(mod, mod.DisplayName, this.Reflection);
                         IModRegistry modRegistryHelper = new ModRegistryHelper(mod, this.ModRegistry, proxyFactory, monitor);
-                        IMultiplayerHelper multiplayerHelper = new MultiplayerHelper(mod, this.Multiplayer);
 
-                        modHelper = new ModHelper(mod, mod.DirectoryPath, contentPackHelper, dataHelper, modRegistryHelper, reflectionHelper, multiplayerHelper, translationHelper);
+                        modHelper = new ModHelper(mod, mod.DirectoryPath, contentPackHelper, dataHelper, modRegistryHelper, reflectionHelper, translationHelper);
                     }
 
                     // init mod
