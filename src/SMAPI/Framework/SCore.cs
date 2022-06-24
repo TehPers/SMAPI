@@ -24,7 +24,6 @@ using StardewModdingAPI.Framework.ModHelpers;
 using StardewModdingAPI.Framework.ModLoading;
 using StardewModdingAPI.Framework.Networking;
 using StardewModdingAPI.Framework.Reflection;
-using StardewModdingAPI.Framework.Rendering;
 using StardewModdingAPI.Framework.Serialization;
 using StardewModdingAPI.Framework.Utilities;
 using StardewModdingAPI.Internal;
@@ -38,7 +37,6 @@ using StardewModdingAPI.Toolkit.Utilities;
 using StardewModdingAPI.Toolkit.Utilities.PathLookups;
 using StardewModdingAPI.Utilities;
 using StardewValley;
-using xTile.Display;
 using LanguageCode = StardewValley.LocalizedContentManager.LanguageCode;
 using MiniMonoModHotfix = MonoMod.Utils.MiniMonoModHotfix;
 using PathUtilities = StardewModdingAPI.Toolkit.Utilities.PathUtilities;
@@ -105,14 +103,8 @@ namespace StardewModdingAPI.Framework
         /// <summary>Whether the program has been disposed.</summary>
         private bool IsDisposed;
 
-        /// <summary>Whether the next content manager requested by the game will be for <see cref="Game1.content"/>.</summary>
-        private bool NextContentManagerIsMain;
-
         /// <summary>Whether post-game-startup initialization has been performed.</summary>
         private bool IsInitialized;
-
-        /// <summary>Whether the player just returned to the title screen.</summary>
-        public bool JustReturnedToTitle { get; set; }
 
         /// <summary>The last language set by the game.</summary>
         private (string Locale, LanguageCode Code) LastLanguage { get; set; } = ("", LanguageCode.en);
@@ -403,9 +395,6 @@ namespace StardewModdingAPI.Framework
         /// <summary>Raised after an instance finishes loading its initial content.</summary>
         private void OnInstanceContentLoaded()
         {
-            // override map display device
-            Game1.mapDisplayDevice = new SDisplayDevice(Game1.content, Game1.game1.GraphicsDevice);
-
             // log GPU info
 #if SMAPI_FOR_WINDOWS
             this.Monitor.Log($"Running on GPU: {Game1.game1.GraphicsDevice?.Adapter?.Description ?? "<unknown>"}");
@@ -512,17 +501,6 @@ namespace StardewModdingAPI.Framework
 
             try
             {
-                /*********
-                ** Reapply overrides
-                *********/
-                if (this.JustReturnedToTitle)
-                {
-                    if (Game1.mapDisplayDevice is not SDisplayDevice)
-                        Game1.mapDisplayDevice = this.GetMapDisplayDevice();
-
-                    this.JustReturnedToTitle = false;
-                }
-
                 /*********
                 ** Execute commands
                 *********/
@@ -750,13 +728,6 @@ namespace StardewModdingAPI.Framework
                 case LoadStage.ReturningToTitle:
                     this.Monitor.Log("Context: returning to title");
                     this.OnReturningToTitle();
-                    break;
-
-                case LoadStage.None:
-                    this.JustReturnedToTitle = true;
-                    break;
-
-                case LoadStage.Loaded:
                     break;
             }
         }
@@ -1504,13 +1475,6 @@ namespace StardewModdingAPI.Framework
             return this.Settings.UseCaseInsensitivePaths
                 ? CaseInsensitiveFileLookup.GetCachedFor(rootDirectory)
                 : MinimalFileLookup.GetCachedFor(rootDirectory);
-        }
-
-        /// <summary>Get the map display device which applies SMAPI features like tile rotation to loaded maps.</summary>
-        /// <remarks>This is separate to let mods like PyTK wrap it with their own functionality.</remarks>
-        private IDisplayDevice GetMapDisplayDevice()
-        {
-            return new SDisplayDevice(Game1.content, Game1.game1.GraphicsDevice);
         }
 
         /// <summary>Get the absolute path to the next available log file.</summary>
